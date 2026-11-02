@@ -13,22 +13,23 @@ const verifier = CognitoJwtVerifier.create({
 
 // Verifies the Cognito ID token in the `token` cookie (set by the Auth API's signin)
 // and passes the Cognito username to the App API lambdas via the authorizer context.
+// A missing, invalid or expired token means the caller isn't signed in, so it throws
+// 'Unauthorized', which API Gateway turns into a 401.
 export const handler = async (
   event: APIGatewayRequestAuthorizerEvent,
 ): Promise<APIGatewayAuthorizerResult> => {
-  const token = parseCookies(event.headers?.cookie ?? event.headers?.Cookie)['token'];
-  if (!token) {
-    return policy('anonymous', 'Deny', event.methodArn);
-  }
-
+  let payload;
   try {
-    const payload = await verifier.verify(token);
-    const username = payload['cognito:username'];
-    return policy(payload.sub, 'Allow', event.methodArn, { username });
+    const token = parseCookies(event.headers?.cookie ?? event.headers?.Cookie)['token'];
+    if (!token) throw new Error('No token cookie');
+    payload = await verifier.verify(token);
   } catch (err) {
     console.log('Token verification failed:', (err as Error).message);
-    return policy('anonymous', 'Deny', event.methodArn);
+    throw new Error('Unauthorized');
   }
+
+  const username = payload['cognito:username'];
+  return policy(payload.sub, 'Allow', event.methodArn, { username });
 };
 
 const parseCookies = (header?: string): Record<string, string> => {
