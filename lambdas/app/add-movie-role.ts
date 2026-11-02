@@ -1,7 +1,12 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { actorKey, ddb, movieKey, type Role, tableName } from "../shared/db";
-import { isResponse, parseJsonObject, response } from "../shared/http";
+import {
+  internalError,
+  isResponse,
+  parseJsonObject,
+  response,
+} from "../shared/http";
 import { logRequest } from "../shared/request-logger";
 
 export const handler = async (
@@ -39,10 +44,6 @@ export const handler = async (
     );
     return response(201, { message: "Role added", data: role });
   } catch (err) {
-    console.error("DynamoDB error:", err);
-    return response(500, {
-      message: "Internal server error",
-      error: err,
-    });
+    return internalError(err);
   }
 };
