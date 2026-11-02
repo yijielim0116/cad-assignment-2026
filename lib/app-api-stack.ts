@@ -88,6 +88,14 @@ export class AppApiStack extends cdk.Stack {
       },
     });
 
+    // API Gateway answers an unknown route or method with "403 Missing Authentication
+    // Token", which reads like an auth problem. Make it a plain 404.
+    api.addGatewayResponse('RouteNotFound', {
+      type: apig.ResponseType.MISSING_AUTHENTICATION_TOKEN,
+      statusCode: '404',
+      templates: { 'application/json': '{"message":"Route not found"}' },
+    });
+
     const userAuth: apig.MethodOptions = {
       authorizer: userAuthorizer,
       authorizationType: apig.AuthorizationType.CUSTOM,
