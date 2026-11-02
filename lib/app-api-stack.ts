@@ -95,6 +95,12 @@ export class AppApiStack extends cdk.Stack {
       statusCode: '404',
       templates: { 'application/json': '{"message":"Route not found"}' },
     });
+    // A missing or wrong x-api-key header on the admin-only POST.
+    api.addGatewayResponse('InvalidApiKey', {
+      type: apig.ResponseType.INVALID_API_KEY,
+      statusCode: '403',
+      templates: { 'application/json': '{"message":"A valid admin API key is required"}' },
+    });
 
     const userAuth: apig.MethodOptions = {
       authorizer: userAuthorizer,
