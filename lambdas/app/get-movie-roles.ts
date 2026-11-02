@@ -9,7 +9,7 @@ import {
   tableName,
   toRole,
 } from "../shared/db";
-import { response } from "../shared/http";
+import { internalError, response } from "../shared/http";
 import { logRequest } from "../shared/request-logger";
 
 export const handler = async (
@@ -44,10 +44,6 @@ export const handler = async (
     const resultItems = queryResult.Items ?? [];
     return response(200, { data: resultItems.filter(isRoleItem).map(toRole) });
   } catch (err) {
-    console.error("DynamoDB error:", err);
-    return response(500, {
-      message: "Internal server error",
-      error: err,
-    });
+    return internalError(err);
   }
 };

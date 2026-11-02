@@ -12,6 +12,12 @@ export const response = (
 
 export const isResponse = (value: object): value is APIGatewayProxyResult => 'statusCode' in value;
 
+// Logs the error for CloudWatch, but keeps its details out of the 500 response.
+export const internalError = (err: unknown): APIGatewayProxyResult => {
+  console.error('Unexpected error:', err);
+  return response(500, { message: 'Internal server error' });
+};
+
 // Parses a JSON object request body, or returns a 400 response.
 export const parseJsonObject = (
   event: APIGatewayProxyEvent,
