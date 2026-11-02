@@ -7,3 +7,6 @@ node_modules
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+
+# Signed-in token saved by curl -c
+cookies.txt
