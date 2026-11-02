@@ -1,4 +1,5 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
+import { TransactionCanceledException } from "@aws-sdk/client-dynamodb";
 import { TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { actorKey, ddb, movieKey, type Role, tableName } from "../shared/db";
 import {
@@ -34,19 +35,35 @@ export const handler = async (
     roleDescription: (body.roleDescription as string).trim(),
   };
 
+  const movie = movieKey(role.movieId);
+  const actor = actorKey(role.actorId);
   try {
-    // A role item shares its movie's partition key: m#movieID | a#actorID.
+    // One transaction, so the role is only written if the movie and actor exist
+    // and the actor has no role in this movie yet. The checks' order matches
+    // the failure responses below.
     await ddb.send(
       new TransactWriteCommand({
         TransactItems: [
           {
+            ConditionCheck: {
+              TableName: tableName,
+              Key: { PK: movie, SK: movie },
+              ConditionExpression: "attribute_exists(PK)",
+            },
+          },
+          {
+            ConditionCheck: {
+              TableName: tableName,
+              Key: { PK: actor, SK: actor },
+              ConditionExpression: "attribute_exists(PK)",
+            },
+          },
+          {
+            // A role item shares its movie's partition key: m#movieID | a#actorID.
             Put: {
               TableName: tableName,
-              Item: {
-                PK: movieKey(role.movieId),
-                SK: actorKey(role.actorId),
-                ...role,
-              },
+              Item: { PK: movie, SK: actor, ...role },
+              ConditionExpression: "attribute_not_exists(PK)",
             },
           },
         ],
@@ -54,6 +71,20 @@ export const handler = async (
     );
     return response(201, { message: "Role added", data: role });
   } catch (err) {
+    if (err instanceof TransactionCanceledException) {
+      const [movieCheck, actorCheck, roleWrite] = err.CancellationReasons ?? [];
+      if (movieCheck?.Code === "ConditionalCheckFailed") {
+        return response(404, { message: `Movie ${role.movieId} not found` });
+      }
+      if (actorCheck?.Code === "ConditionalCheckFailed") {
+        return response(404, { message: `Actor ${role.actorId} not found` });
+      }
+      if (roleWrite?.Code === "ConditionalCheckFailed") {
+        return response(409, {
+          message: `Actor ${role.actorId} already has a role in movie ${role.movieId}`,
+        });
+      }
+    }
     return internalError(err);
   }
 };
