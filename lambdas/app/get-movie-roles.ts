@@ -1,8 +1,9 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 import {
   actorKey,
   ddb,
+  getItem,
   isRoleItem,
   movieKey,
   parseId,
@@ -28,19 +29,25 @@ export const handler = async (
     return response(400, { message: "actor must be a positive integer" });
   }
   try {
-    // With ?actor=, narrow the query to that actor's role item (SK = a#actorID).
-    const queryResult = await ddb.send(
-      new QueryCommand({
-        TableName: tableName,
-        KeyConditionExpression:
-          actorId === undefined ? "PK = :pk" : "PK = :pk AND SK = :sk",
-        ExpressionAttributeValues: {
-          ":pk": movieKey(movieId),
-          ...(actorId !== undefined && { ":sk": actorKey(actorId) }),
-        },
-      })
-    );
+    const [movieItem, queryResult] = await Promise.all([
+      getItem(movieKey(movieId), movieKey(movieId)),
+      // With ?actor=, narrow the query to that actor's role item (SK = a#actorID).
+      ddb.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression:
+            actorId === undefined ? "PK = :pk" : "PK = :pk AND SK = :sk",
+          ExpressionAttributeValues: {
+            ":pk": movieKey(movieId),
+            ...(actorId !== undefined && { ":sk": actorKey(actorId) }),
+          },
+        })
+      ),
+    ]);
 
+    if (!movieItem) {
+      return response(404, { message: `Movie ${movieId} not found` });
+    }
     const resultItems = queryResult.Items ?? [];
     return response(200, { data: resultItems.filter(isRoleItem).map(toRole) });
   } catch (err) {
