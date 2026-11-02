@@ -17,11 +17,21 @@ export const handler = async (
   const body = parseJsonObject(event);
   if (isResponse(body)) return body;
 
+  const problems = [
+    !isPositiveId(body.movieId) && "movieId must be a positive integer",
+    !isPositiveId(body.actorId) && "actorId must be a positive integer",
+    !isText(body.roleName) && "roleName must be a non-empty string",
+    !isText(body.roleDescription) && "roleDescription must be a non-empty string",
+  ].filter((problem) => problem !== false);
+  if (problems.length) {
+    return response(400, { message: problems.join("; ") });
+  }
+
   const role: Role = {
     movieId: body.movieId as number,
     actorId: body.actorId as number,
-    roleName: body.roleName as string,
-    roleDescription: body.roleDescription as string,
+    roleName: (body.roleName as string).trim(),
+    roleDescription: (body.roleDescription as string).trim(),
   };
 
   try {
@@ -47,3 +57,10 @@ export const handler = async (
     return internalError(err);
   }
 };
+
+// IDs must be real JSON numbers here (unlike path parameters, which are always strings).
+const isPositiveId = (value: unknown) =>
+  typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+
+const isText = (value: unknown) =>
+  typeof value === "string" && value.trim() !== "";
