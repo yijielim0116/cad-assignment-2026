@@ -29,8 +29,11 @@ export const handler = async (
     return response(400, { message: "actor must be a positive integer" });
   }
   try {
-    const [movieItem, queryResult] = await Promise.all([
+    const [movieItem, actorItem, queryResult] = await Promise.all([
       getItem(movieKey(movieId), movieKey(movieId)),
+      actorId === undefined
+        ? undefined
+        : getItem(actorKey(actorId), actorKey(actorId)),
       // With ?actor=, narrow the query to that actor's role item (SK = a#actorID).
       ddb.send(
         new QueryCommand({
@@ -47,6 +50,9 @@ export const handler = async (
 
     if (!movieItem) {
       return response(404, { message: `Movie ${movieId} not found` });
+    }
+    if (actorId !== undefined && !actorItem) {
+      return response(404, { message: `Actor ${actorId} not found` });
     }
     const resultItems = queryResult.Items ?? [];
     return response(200, { data: resultItems.filter(isRoleItem).map(toRole) });
