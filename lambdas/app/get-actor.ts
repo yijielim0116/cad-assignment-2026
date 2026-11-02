@@ -1,11 +1,9 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { GetCommand } from "@aws-sdk/lib-dynamodb";
 import {
   actorKey,
-  ddb,
+  getItem,
   movieKey,
   parseId,
-  tableName,
   toActor,
   toRole,
 } from "../shared/db";
@@ -28,29 +26,25 @@ export const handler = async (
     return response(400, { message: "movie must be a positive integer" });
   }
   try {
-    const actorResult = await ddb.send(
-      new GetCommand({
-        TableName: tableName,
-        Key: { PK: actorKey(actorId), SK: actorKey(actorId) },
-      })
-    );
+    // With ?movie=, also fetch that movie and the actor's role in it, if they have one.
+    const [actorItem, movieItem, roleItem] = await Promise.all([
+      getItem(actorKey(actorId), actorKey(actorId)),
+      movieId === undefined
+        ? undefined
+        : getItem(movieKey(movieId), movieKey(movieId)),
+      movieId === undefined
+        ? undefined
+        : getItem(movieKey(movieId), actorKey(actorId)),
+    ]);
 
-    if (!actorResult.Item) {
+    if (!actorItem) {
       return response(404, { message: `Actor ${actorId} not found` });
     }
-    const actor = toActor(actorResult.Item);
-    if (movieId === undefined) {
-      return response(200, { data: actor });
+    if (movieId !== undefined && !movieItem) {
+      return response(404, { message: `Movie ${movieId} not found` });
     }
-
-    // With ?movie=, also include the actor's role in that movie, if they have one.
-    const roleResult = await ddb.send(
-      new GetCommand({
-        TableName: tableName,
-        Key: { PK: movieKey(movieId), SK: actorKey(actorId) },
-      })
-    );
-    const role = roleResult.Item ? toRole(roleResult.Item) : undefined;
+    const actor = toActor(actorItem);
+    const role = roleItem ? toRole(roleItem) : undefined;
     return response(200, { data: { ...actor, role } });
   } catch (err) {
     return internalError(err);
