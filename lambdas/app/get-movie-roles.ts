@@ -6,11 +6,16 @@ import {
   getItem,
   isRoleItem,
   movieKey,
-  parseId,
   tableName,
   toRole,
 } from "../shared/db";
-import { internalError, response } from "../shared/http";
+import {
+  internalError,
+  isResponse,
+  pathId,
+  queryId,
+  response,
+} from "../shared/http";
 import { logRequest } from "../shared/request-logger";
 
 export const handler = async (
@@ -18,16 +23,11 @@ export const handler = async (
 ): Promise<APIGatewayProxyResult> => {
   logRequest(event);
 
-  const movieId = parseId(event.pathParameters?.movieID);
-  if (movieId === undefined) {
-    return response(400, { message: "movieID must be a positive integer" });
-  }
+  const movieId = pathId(event, "movieID");
+  if (isResponse(movieId)) return movieId;
+  const actorId = queryId(event, "actor");
+  if (isResponse(actorId)) return actorId;
 
-  const actorParam = event.queryStringParameters?.actor;
-  const actorId = parseId(actorParam);
-  if (actorParam !== undefined && actorId === undefined) {
-    return response(400, { message: "actor must be a positive integer" });
-  }
   try {
     const [movieItem, actorItem, queryResult] = await Promise.all([
       getItem(movieKey(movieId), movieKey(movieId)),

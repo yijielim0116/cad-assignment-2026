@@ -1,4 +1,5 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { parseId } from './model';
 
 export const response = (
   statusCode: number,
@@ -10,7 +11,26 @@ export const response = (
   body: JSON.stringify(body),
 });
 
-export const isResponse = (value: object): value is APIGatewayProxyResult => 'statusCode' in value;
+export const isResponse = (value: unknown): value is APIGatewayProxyResult =>
+  typeof value === 'object' && value !== null && 'statusCode' in value;
+
+// Reads a required ID path parameter, or returns a 400 response.
+export const pathId = (
+  event: APIGatewayProxyEvent,
+  name: string,
+): number | APIGatewayProxyResult =>
+  parseId(event.pathParameters?.[name]) ??
+  response(400, { message: `${name} must be a positive integer` });
+
+// Reads an optional ID query parameter: undefined if it's absent, or a 400 response if it's invalid.
+export const queryId = (
+  event: APIGatewayProxyEvent,
+  name: string,
+): number | undefined | APIGatewayProxyResult => {
+  const value = event.queryStringParameters?.[name];
+  if (value === undefined) return undefined;
+  return parseId(value) ?? response(400, { message: `${name} must be a positive integer` });
+};
 
 // Logs the error for CloudWatch, but keeps its details out of the 500 response.
 export const internalError = (err: unknown): APIGatewayProxyResult => {
