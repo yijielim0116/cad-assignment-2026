@@ -35,8 +35,8 @@ export const handler = async (
     roleDescription: (body.roleDescription as string).trim(),
   };
 
-  const movie = movieKey(role.movieId);
-  const actor = actorKey(role.actorId);
+  const movieItemKey = movieKey(role.movieId);
+  const actorItemKey = actorKey(role.actorId);
   try {
     // One transaction, so the role is only written if the movie and actor exist
     // and the actor has no role in this movie yet. The checks' order matches
@@ -47,14 +47,14 @@ export const handler = async (
           {
             ConditionCheck: {
               TableName: tableName,
-              Key: { PK: movie, SK: movie },
+              Key: { PK: movieItemKey, SK: movieItemKey },
               ConditionExpression: "attribute_exists(PK)",
             },
           },
           {
             ConditionCheck: {
               TableName: tableName,
-              Key: { PK: actor, SK: actor },
+              Key: { PK: actorItemKey, SK: actorItemKey },
               ConditionExpression: "attribute_exists(PK)",
             },
           },
@@ -62,7 +62,7 @@ export const handler = async (
             // A role item shares its movie's partition key: m#movieID | a#actorID.
             Put: {
               TableName: tableName,
-              Item: { PK: movie, SK: actor, ...role },
+              Item: { PK: movieItemKey, SK: actorItemKey, ...role },
               ConditionExpression: "attribute_not_exists(PK)",
             },
           },
