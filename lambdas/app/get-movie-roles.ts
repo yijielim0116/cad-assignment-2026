@@ -3,7 +3,8 @@ import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 import {
   actorKey,
   ddb,
-  getItem,
+  getActorItem,
+  getMovieItem,
   isRoleItem,
   movieKey,
   tableName,
@@ -30,10 +31,8 @@ export const handler = async (
 
   try {
     const [movieItem, actorItem, queryResult] = await Promise.all([
-      getItem(movieKey(movieId), movieKey(movieId)),
-      actorId === undefined
-        ? undefined
-        : getItem(actorKey(actorId), actorKey(actorId)),
+      getMovieItem(movieId),
+      actorId === undefined ? undefined : getActorItem(actorId),
       // With ?actor=, narrow the query to that actor's role item (SK = a#actorID).
       ddb.send(
         new QueryCommand({

@@ -1,8 +1,8 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import {
-  actorKey,
-  getItem,
-  movieKey,
+  getActorItem,
+  getMovieItem,
+  getRoleItem,
   toActor,
   toRole,
 } from "../shared/db";
@@ -28,13 +28,9 @@ export const handler = async (
   try {
     // With ?movie=, also fetch that movie and the actor's role in it, if they have one.
     const [actorItem, movieItem, roleItem] = await Promise.all([
-      getItem(actorKey(actorId), actorKey(actorId)),
-      movieId === undefined
-        ? undefined
-        : getItem(movieKey(movieId), movieKey(movieId)),
-      movieId === undefined
-        ? undefined
-        : getItem(movieKey(movieId), actorKey(actorId)),
+      getActorItem(actorId),
+      movieId === undefined ? undefined : getMovieItem(movieId),
+      movieId === undefined ? undefined : getRoleItem(movieId, actorId),
     ]);
 
     if (!actorItem) {
