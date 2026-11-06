@@ -1,4 +1,4 @@
-# Serverless REST Assignment - Cloud App Development
+# Serverless MOVIE Assignment - Cloud App Development
 
 __Name:__ Yi Jie Lim (20104720)
 
